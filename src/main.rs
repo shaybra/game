@@ -46,10 +46,26 @@ fn main() {
     // listen for keys and act on them
     for c in stdin.keys() {
         match c.unwrap() {
-            Key::Up => position = (position.0 + 1, position.1),
-            Key::Down => position = (position.0 - 1, position.1),
-            Key::Left => position = (position.0, position.1 - 1),
-            Key::Right => position = (position.0, position.1 + 1),
+            Key::Up => {
+                if 0 < position.0 - 1 {
+                    position = (position.0 - 1, position.1);
+                }
+            }
+            Key::Down => {
+                if h > position.0 + 1 {
+                    position = (position.0 + 1, position.1);
+                }
+            }
+            Key::Left => {
+                if 0 < position.1 - 1 {
+                    position = (position.0, position.1 - 1);
+                }
+            }
+            Key::Right => {
+                if position.1 + 1 < w {
+                    position = (position.0, position.1 + 1);
+                }
+            }
             Key::Esc | Key::Ctrl('c') => break,
             _ => (),
         };
