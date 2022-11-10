@@ -16,14 +16,14 @@ struct Terminal {
 
 macro_rules! clear_screen {
     ($input:expr) => {
-        write!($input, "{}", clear::All).unwrap();
+        write!($input, "{}\r", clear::All).unwrap();
     };
 }
 
 fn prepare_terminal<C: termion::color::Color>(stdout: &mut RawTerminal<Stdout>, colour: Fg<C>) {
     stdout.flush().unwrap();
     clear_screen!(stdout);
-    write!(stdout, "{}{}", Goto(1, 1), colour).unwrap();
+    write!(stdout, "{}{}\r", Goto(1, 1), colour).unwrap();
 }
 
 fn update_terminal(stdout: &mut RawTerminal<Stdout>, y: u16, x: u16, h: u16, w: u16) {
@@ -40,6 +40,9 @@ fn update_terminal(stdout: &mut RawTerminal<Stdout>, y: u16, x: u16, h: u16, w: 
             } else {
                 write!(stdout, "#").unwrap();
             }
+        }
+        if i != h - 1 {
+            write!(stdout, "\n\r").unwrap();
         }
     }
     writeln!(stdout).unwrap();
@@ -59,39 +62,48 @@ fn new_game(stdout: &mut RawTerminal<Stdout>, h: &mut u16, w: &mut u16) {
     write!(stdout, "{}0{}{}", Goto(1, 1), Hide, color::Fg(color::Red)).unwrap();
 
     // populate the terminal
-    for _ in 1..*h {
+    for i in 1..*h {
         for _ in 1..*w {
             write!(stdout, "#").unwrap();
+        }
+        if i != *h - 1 {
+            write!(stdout, "\n\r").unwrap();
         }
     }
     writeln!(stdout).unwrap();
 }
 
-fn update_position(c : Result<termion::event::Key, std::io::Error>, y: &mut u16, x: &mut u16, h: u16, w: u16) -> bool{
+fn update_position(
+    c: Result<termion::event::Key, std::io::Error>,
+    y: &mut u16,
+    x: &mut u16,
+    h: u16,
+    w: u16,
+) -> bool {
     match c.unwrap() {
-            Key::Up => {
-                if 0 < *y - 1 {
-                    *y -= 1;
-                }
+        Key::Up => {
+            if 0 < *y - 1 {
+                *y -= 1;
             }
-            Key::Down => {
-                if h > *y + 1 {
-                    *y += 1;
-                }
+        }
+        Key::Down => {
+            if h > *y + 1 {
+                *y += 1;
             }
-            Key::Left => {
-                if 0 < *x - 1 {
-                    *x -= 1;
-                }
+        }
+        Key::Left => {
+            if 0 < *x - 1 {
+                *x -= 1;
             }
-            Key::Right => {
-                if w > *x + 1 {
-                    *x += 1;
-                }
+        }
+        Key::Right => {
+            if w > *x + 1 {
+                *x += 1;
             }
-            Key::Esc | Key::Ctrl('c') => return false,
-            _ => (),
-        };
+        }
+        Key::Esc | Key::Ctrl('c') => return false,
+        _ => (),
+    };
     true
 }
 
@@ -106,7 +118,7 @@ fn game_loop(
     for c in stdin.keys() {
         if !update_position(c, y, x, h, w) {
             break;
-        } 
+        }
 
         prepare_terminal(stdout, color::Fg(color::Red));
 
@@ -117,7 +129,7 @@ fn game_loop(
 fn clean_up(stdout: &mut RawTerminal<Stdout>) {
     stdout.flush().unwrap();
     clear_screen!(stdout);
-    write!(stdout, "{}{}", Goto(1, 1), Show).unwrap();
+    write!(stdout, "{}{}\r", Goto(1, 1), Show).unwrap();
 }
 
 fn main() {
