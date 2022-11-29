@@ -1,3 +1,6 @@
+mod menu;
+
+use crate::menu::GameMenu;
 use std::io::{stdin, stdout, Stdin, Stdout, Write};
 use termion::{
     clear, color,
