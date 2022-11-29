@@ -9,9 +9,18 @@ use termion::{
     terminal_size,
 };
 
+#[derive(Clone, Copy)]
 struct Terminal {
     w: u16,
     h: u16,
+}
+
+#[derive(Clone, Copy)]
+struct Player {
+    current_x: u16,
+    current_y: u16,
+    prev_x: u16,
+    prev_y: u16,
 }
 
 macro_rules! clear_screen {
@@ -26,10 +35,10 @@ fn prepare_terminal<C: termion::color::Color>(stdout: &mut RawTerminal<Stdout>, 
     write!(stdout, "{}{}\r", Goto(1, 1), colour).unwrap();
 }
 
-fn update_terminal(stdout: &mut RawTerminal<Stdout>, y: u16, x: u16, h: u16, w: u16) {
-    for i in 1..h {
-        for j in 1..w {
-            if i == y && j == x {
+fn update_terminal(stdout: &mut RawTerminal<Stdout>, player: &mut Player, terminal: Terminal) {
+    for i in 1..terminal.h {
+        for j in 1..terminal.w {
+            if i == player.current_y && j == player.current_x {
                 write!(
                     stdout,
                     "{}0{}",
@@ -37,22 +46,22 @@ fn update_terminal(stdout: &mut RawTerminal<Stdout>, y: u16, x: u16, h: u16, w: 
                     color::Fg(color::Red)
                 )
                 .unwrap();
-            } else {
+            } else if i == player.prev_y && j == player.prev_x {
                 write!(stdout, "#").unwrap();
             }
         }
-        if i != h - 1 {
+        if i != terminal.h - 1 {
             write!(stdout, "\n\r").unwrap();
         }
     }
     writeln!(stdout).unwrap();
 }
 
-fn new_game(stdout: &mut RawTerminal<Stdout>, h: &mut u16, w: &mut u16) {
+fn new_game(stdout: &mut RawTerminal<Stdout>, terminal: &mut Terminal) {
     prepare_terminal(stdout, color::Fg(color::White));
 
     // get width and height of terminal
-    (*w, *h) = if let Ok((w, h)) = terminal_size() {
+    (terminal.w, terminal.h) = if let Ok((w, h)) = terminal_size() {
         (w, h)
     } else {
         // default to 100x100 terminal
@@ -62,11 +71,11 @@ fn new_game(stdout: &mut RawTerminal<Stdout>, h: &mut u16, w: &mut u16) {
     write!(stdout, "{}0{}{}", Goto(1, 1), Hide, color::Fg(color::Red)).unwrap();
 
     // populate the terminal
-    for i in 1..*h {
-        for _ in 1..*w {
+    for i in 1..terminal.h {
+        for _ in 1..terminal.w {
             write!(stdout, "#").unwrap();
         }
-        if i != *h - 1 {
+        if i != terminal.h - 1 {
             write!(stdout, "\n\r").unwrap();
         }
     }
@@ -75,30 +84,28 @@ fn new_game(stdout: &mut RawTerminal<Stdout>, h: &mut u16, w: &mut u16) {
 
 fn update_position(
     c: Result<termion::event::Key, std::io::Error>,
-    y: &mut u16,
-    x: &mut u16,
-    h: u16,
-    w: u16,
+    player: &mut Player,
+    terminal: Terminal,
 ) -> bool {
     match c.unwrap() {
         Key::Up => {
-            if 0 < *y - 1 {
-                *y -= 1;
+            if 0 < player.current_y - 1 {
+                player.current_y -= 1;
             }
         }
         Key::Down => {
-            if h > *y + 1 {
-                *y += 1;
+            if terminal.h > player.current_y + 1 {
+                player.current_y += 1;
             }
         }
         Key::Left => {
-            if 0 < *x - 1 {
-                *x -= 1;
+            if 0 < player.current_x - 1 {
+                player.current_x -= 1;
             }
         }
         Key::Right => {
-            if w > *x + 1 {
-                *x += 1;
+            if terminal.w > player.current_x + 1 {
+                player.current_x += 1;
             }
         }
         Key::Esc | Key::Ctrl('c') => return false,
@@ -110,19 +117,20 @@ fn update_position(
 fn game_loop(
     stdin: Stdin,
     stdout: &mut RawTerminal<Stdout>,
-    y: &mut u16,
-    x: &mut u16,
-    h: u16,
-    w: u16,
+    player: &mut Player,
+    terminal: Terminal
 ) {
     for c in stdin.keys() {
-        if !update_position(c, y, x, h, w) {
+        player.prev_x = player.current_x;
+        player.prev_y = player.current_y;
+
+        if !update_position(c, player, terminal) {
             break;
         }
 
         prepare_terminal(stdout, color::Fg(color::Red));
 
-        update_terminal(stdout, *y, *x, h, w);
+        update_terminal(stdout, player, terminal);
     }
 }
 
@@ -136,20 +144,23 @@ fn main() {
     // locals
     let stdin = stdin();
     let mut stdout = stdout().into_raw_mode().unwrap();
-    let mut position = (1, 1);
     let mut terminal = Terminal { w: 100, h: 100 };
+    let mut player = Player {
+        current_x: 1,
+        current_y: 1,
+        prev_x: 1,
+        prev_y: 1,
+    };
 
     // make a new game
-    new_game(&mut stdout, &mut terminal.h, &mut terminal.w);
+    new_game(&mut stdout, &mut terminal);
 
     // run the game loop
     game_loop(
         stdin,
         &mut stdout,
-        &mut position.0,
-        &mut position.1,
-        terminal.h,
-        terminal.w,
+        &mut player,
+        terminal
     );
 
     // clean up before exit
